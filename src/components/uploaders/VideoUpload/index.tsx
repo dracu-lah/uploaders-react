@@ -4,7 +4,7 @@ import VideoView from "./VideoView";
 import UploadedVideoContext from "./useUploadedVideo";
 
 const VideoUpload = ({
-  url,
+  api,
   aspect = 4 / 4,
   uploadLimit = 25,
   cropperWidth = "50vw",
@@ -18,7 +18,7 @@ const VideoUpload = ({
   return (
     <UploadedVideoContext.Provider
       value={{
-        url,
+        api,
         aspect,
         cropperWidth,
         cropperHeight,

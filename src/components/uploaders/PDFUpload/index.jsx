@@ -5,7 +5,7 @@ import PDFView from "./PDFView";
 import UploadedPDFContext from "./useUploadedPDF";
 
 const PDFUpload = ({
-  url,
+  api,
   uploaderWidth = "50vw",
   uploadLimit = 4,
   uploaderHeight = "50vw",
@@ -15,7 +15,7 @@ const PDFUpload = ({
   return (
     <UploadedPDFContext.Provider
       value={{
-        url,
+        api,
         uploaderWidth,
         uploaderHeight,
         uploadLimit,

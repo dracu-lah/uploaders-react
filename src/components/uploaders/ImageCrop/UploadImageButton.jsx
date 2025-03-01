@@ -5,7 +5,7 @@ import { dataUrlToImageFile } from "./dataUrlToImageFile";
 import { useCroppedImage } from "./useCroppedImage";
 
 const UploadImageButton = ({ onClearImage }) => {
-  const { croppedImageDataURL, url, onUploadResponse } = useCroppedImage();
+  const { croppedImageDataURL, api, onUploadResponse } = useCroppedImage();
   const [error, setError] = useState(false);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -17,7 +17,7 @@ const UploadImageButton = ({ onClearImage }) => {
       setLoading(true);
       setError(false);
       setSuccess(false);
-      const response = await UploadImageAPI(url, file);
+      const response = await UploadImageAPI(api, file);
       setSuccess(true);
       if (onUploadResponse) {
         onUploadResponse(response);

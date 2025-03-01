@@ -16,10 +16,10 @@ const base64ToBlob = (base64, mimeType) => {
 };
 
 const UploadButton = ({ pdf, setPDF }) => {
-  const { url, onUploadResponse } = useUploadedPDF();
+  const { api, onUploadResponse } = useUploadedPDF();
 
   const mutation = useMutation({
-    mutationFn: url,
+    mutationFn: api,
     onSuccess: (data) => {
       toast.success("Uploaded PDF!");
       setPDF(null);

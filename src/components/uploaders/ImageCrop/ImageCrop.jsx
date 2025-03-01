@@ -6,7 +6,7 @@ import CroppedImageContext from "./useCroppedImage";
 import { cropImage } from "./cropImage";
 
 const ImageCrop = ({
-  url,
+  api,
   uploadLimit = 4,
   aspect = 4 / 4,
   cropperWidth = "50vw",
@@ -29,7 +29,7 @@ const ImageCrop = ({
     <CroppedImageContext.Provider
       value={{
         croppedImageDataURL,
-        url,
+        api,
         aspect,
         cropperWidth,
         cropperHeight,

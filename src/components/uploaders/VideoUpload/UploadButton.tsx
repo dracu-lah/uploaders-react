@@ -15,9 +15,9 @@ const base64ToBlob = (base64, mimeType) => {
 };
 
 const UploadButton = ({ video, setVideo }) => {
-  const { url, onUploadResponse } = useUploadedVideo();
+  const { api, onUploadResponse } = useUploadedVideo();
   const mutation = useMutation({
-    mutationFn: url,
+    mutationFn: api,
     onSuccess: (data) => {
       toast.success("Uploaded Video!");
       setVideo(null);
