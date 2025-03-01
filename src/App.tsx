@@ -1,21 +1,20 @@
-import VideoUpload from "./components/uploaders/VideoUpload";
-
 function App() {
   return (
     <>
       <h1>Uploaders</h1>
 
-      <VideoUpload
-        api={UploadBannerVideoAPI}
-        aspect={83 / 45}
+      <ImageCrop
+        url={`${BASE_URL}${endPoint.sendBannerImage}`}
         cropperWidth="100%"
         uploaderWidth="100%"
         uploaderHeight="200px"
         cropperHeight="300px"
+        aspect={aspectRatio}
         onUploadResponse={(response) => {
-          console.log("response", response);
+          setBannerImages([response.data]);
         }}
       />
+      <ImageList imageUrls={bannerImages} setImageUrls={setBannerImages} />
     </>
   );
 }
