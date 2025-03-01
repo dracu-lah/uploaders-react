@@ -1,13 +1,41 @@
 import { useRef } from "react";
-import DropZone from "./DropZone";
 import { useCroppedImage } from "./useCroppedImage";
 
 import { Image } from "lucide-react";
 
 const ImageUploader = ({ onImageSelected }) => {
-  const DropZone = ({ onDrop }) => {
-    const { uploadLimit } = useCroppedImage(); // uploadLimit is in MB
+  const {
+    uploaderWidth: width,
+    uploaderHeight: height,
+    uploadLimit,
+  } = useCroppedImage(); // uploadLimit in MB
+  const inputRef = useRef(null);
 
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const fileSizeInMB = file.size / (1024 * 1024); // Convert bytes to MB
+      if (fileSizeInMB > uploadLimit) {
+        console.error(`File exceeds the upload limit of ${uploadLimit}MB`);
+        return;
+      }
+      if (file.type.startsWith("image/")) {
+        const reader = new FileReader();
+        reader.onload = () => {
+          onImageSelected(reader.result);
+        };
+        reader.readAsDataURL(file);
+      } else {
+        console.error("Please upload a valid image file.");
+      }
+    }
+  };
+
+  const openFileDialog = () => {
+    inputRef.current.click();
+  };
+
+  const DropZone = ({ onDrop }) => {
     const handleDragOver = (e) => {
       e.preventDefault();
     };
@@ -52,37 +80,6 @@ const ImageUploader = ({ onImageSelected }) => {
       </div>
     );
   };
-  const {
-    uploaderWidth: width,
-    uploaderHeight: height,
-    uploadLimit,
-  } = useCroppedImage(); // uploadLimit in MB
-  const inputRef = useRef(null);
-
-  const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const fileSizeInMB = file.size / (1024 * 1024); // Convert bytes to MB
-      if (fileSizeInMB > uploadLimit) {
-        console.error(`File exceeds the upload limit of ${uploadLimit}MB`);
-        return;
-      }
-      if (file.type.startsWith("image/")) {
-        const reader = new FileReader();
-        reader.onload = () => {
-          onImageSelected(reader.result);
-        };
-        reader.readAsDataURL(file);
-      } else {
-        console.error("Please upload a valid image file.");
-      }
-    }
-  };
-
-  const openFileDialog = () => {
-    inputRef.current.click();
-  };
-
   return (
     <div
       style={{
