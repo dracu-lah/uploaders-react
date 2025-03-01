@@ -1,11 +1,4 @@
-import {
-  useEffect,
-  useState,
-  useRef,
-  createContext,
-  useContext,
-  ReactNode,
-} from "react";
+import { useEffect, useState, useRef } from "react";
 import Cropper from "react-easy-crop";
 import { Image, Upload, X, Check, AlertCircle, Loader } from "lucide-react";
 
@@ -22,107 +15,80 @@ type Area = {
   height: number;
 };
 
-type CroppedImageContextType = {
-  croppedImageDataURL: string | null;
-  aspect: number;
-  cropperWidth: string;
-  cropperHeight: string;
-  uploaderWidth: string;
-  uploaderHeight: string;
-  uploadLimit: number;
-  onUploadResponse?: (response: any) => void;
-  uploadFunction?: (file: File) => Promise<any>;
-};
-
 type ImageCropProps = {
-  uploadFunction?: (file: File) => Promise<any>;
+  uploadFunction?: (file: File) => Promise<unknown>;
   uploadLimit?: number;
   aspect?: number;
   cropperWidth?: string;
   cropperHeight?: string;
   uploaderWidth?: string;
   uploaderHeight?: string;
-  onUploadResponse?: (response: any) => void;
+  onUploadResponse?: (response: unknown) => void;
 };
 
-// Context creation
-const CroppedImageContext = createContext<CroppedImageContextType>({
-  croppedImageDataURL: null,
-  aspect: 1,
-  cropperWidth: "100%",
-  cropperHeight: "100%",
-  uploaderWidth: "100%",
-  uploaderHeight: "100%",
-  uploadLimit: 4,
-});
-
-// Custom hook to access context
-const useCroppedImage = () => useContext(CroppedImageContext);
-
 // Utility functions
-const cropImage = (image: string, croppedAreaPixels: Area): string | null => {
-  if (image && croppedAreaPixels) {
+const cropImage = async (
+  image: string,
+  croppedAreaPixels: Area,
+): Promise<string | null> => {
+  if (!image || !croppedAreaPixels) return null;
+
+  return new Promise<string | null>((resolve) => {
     const canvas = document.createElement("canvas");
     const imageElement = document.createElement("img");
     imageElement.src = image;
 
-    // Wait for the image to load
-    return new Promise<string>((resolve) => {
-      imageElement.onload = () => {
-        const scaleX = imageElement.naturalWidth / imageElement.width;
-        const scaleY = imageElement.naturalHeight / imageElement.height;
+    imageElement.onload = () => {
+      const scaleX = imageElement.naturalWidth / imageElement.width;
+      const scaleY = imageElement.naturalHeight / imageElement.height;
 
-        canvas.width = croppedAreaPixels.width;
-        canvas.height = croppedAreaPixels.height;
+      canvas.width = croppedAreaPixels.width;
+      canvas.height = croppedAreaPixels.height;
 
-        const ctx = canvas.getContext("2d");
-        if (!ctx) return resolve(null);
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return resolve(null);
 
-        ctx.drawImage(
-          imageElement,
-          croppedAreaPixels.x * scaleX,
-          croppedAreaPixels.y * scaleY,
-          croppedAreaPixels.width * scaleX,
-          croppedAreaPixels.height * scaleY,
-          0,
-          0,
-          croppedAreaPixels.width,
-          croppedAreaPixels.height,
-        );
+      ctx.drawImage(
+        imageElement,
+        croppedAreaPixels.x * scaleX,
+        croppedAreaPixels.y * scaleY,
+        croppedAreaPixels.width * scaleX,
+        croppedAreaPixels.height * scaleY,
+        0,
+        0,
+        croppedAreaPixels.width,
+        croppedAreaPixels.height,
+      );
 
-        // Determine MIME type from the input data URL
-        const mimeType =
-          image.match(/data:(image\/\w+);base64,/)?.[1] || "image/jpeg";
-        resolve(canvas.toDataURL(mimeType));
-      };
-    });
-  }
-  return null;
+      // Determine MIME type from the input data URL
+      const mimeType =
+        image.match(/data:(image\/\w+);base64,/)?.[1] || "image/jpeg";
+      resolve(canvas.toDataURL(mimeType));
+    };
+  });
 };
 
 const dataUrlToImageFile = (
-  croppedImageDataURL: string,
+  dataURL: string,
   imageName: string = "Image",
 ): File | null => {
-  if (croppedImageDataURL) {
-    // Convert base64 to Blob
-    const byteCharacters = atob(croppedImageDataURL.split(",")[1]);
-    const byteNumbers = new Array(byteCharacters.length);
+  if (!dataURL) return null;
 
-    for (let i = 0; i < byteCharacters.length; i++) {
-      byteNumbers[i] = byteCharacters.charCodeAt(i);
-    }
+  // Convert base64 to Blob
+  const byteCharacters = atob(dataURL.split(",")[1]);
+  const byteNumbers = new Array(byteCharacters.length);
 
-    const mimeType =
-      croppedImageDataURL.match(/data:(image\/\w+);base64,/)?.[1] ||
-      "image/jpeg";
-    const extension = mimeType.split("/")[1];
-    const byteArray = new Uint8Array(byteNumbers);
-    const blob = new Blob([byteArray], { type: mimeType });
-
-    return new File([blob], `${imageName}.${extension}`, { type: mimeType });
+  for (let i = 0; i < byteCharacters.length; i++) {
+    byteNumbers[i] = byteCharacters.charCodeAt(i);
   }
-  return null;
+
+  const mimeType =
+    dataURL.match(/data:(image\/\w+);base64,/)?.[1] || "image/jpeg";
+  const extension = mimeType.split("/")[1];
+  const byteArray = new Uint8Array(byteNumbers);
+  const blob = new Blob([byteArray], { type: mimeType });
+
+  return new File([blob], `${imageName}.${extension}`, { type: mimeType });
 };
 
 // Component definitions
@@ -140,27 +106,30 @@ const DropZone = ({
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     const file = e.dataTransfer.files[0];
+    processFile(file);
+  };
 
-    if (file) {
-      const fileSizeInMB = file.size / (1024 * 1024);
+  const processFile = (file: File) => {
+    if (!file) return;
 
-      if (fileSizeInMB > uploadLimit) {
-        console.error(`File exceeds the upload limit of ${uploadLimit}MB`);
-        return;
-      }
-
-      if (file.type.startsWith("image/")) {
-        const reader = new FileReader();
-        reader.onload = () => {
-          if (reader.result && typeof reader.result === "string") {
-            onDrop(reader.result);
-          }
-        };
-        reader.readAsDataURL(file);
-      } else {
-        console.error("Please upload a valid image file.");
-      }
+    const fileSizeInMB = file.size / (1024 * 1024);
+    if (fileSizeInMB > uploadLimit) {
+      console.error(`File exceeds the upload limit of ${uploadLimit}MB`);
+      return;
     }
+
+    if (!file.type.startsWith("image/")) {
+      console.error("Please upload a valid image file.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (reader.result && typeof reader.result === "string") {
+        onDrop(reader.result);
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
   return (
@@ -184,35 +153,39 @@ const DropZone = ({
 
 const ImageUploader = ({
   onImageSelected,
+  uploaderWidth,
+  uploaderHeight,
+  uploadLimit,
 }: {
   onImageSelected: (dataUrl: string) => void;
+  uploaderWidth: string;
+  uploaderHeight: string;
+  uploadLimit: number;
 }) => {
-  const { uploaderWidth, uploaderHeight, uploadLimit } = useCroppedImage();
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    if (!file) return;
 
-    if (file) {
-      const fileSizeInMB = file.size / (1024 * 1024);
-
-      if (fileSizeInMB > uploadLimit) {
-        console.error(`File exceeds the upload limit of ${uploadLimit}MB`);
-        return;
-      }
-
-      if (file.type.startsWith("image/")) {
-        const reader = new FileReader();
-        reader.onload = () => {
-          if (reader.result && typeof reader.result === "string") {
-            onImageSelected(reader.result);
-          }
-        };
-        reader.readAsDataURL(file);
-      } else {
-        console.error("Please upload a valid image file.");
-      }
+    const fileSizeInMB = file.size / (1024 * 1024);
+    if (fileSizeInMB > uploadLimit) {
+      console.error(`File exceeds the upload limit of ${uploadLimit}MB`);
+      return;
     }
+
+    if (!file.type.startsWith("image/")) {
+      console.error("Please upload a valid image file.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (reader.result && typeof reader.result === "string") {
+        onImageSelected(reader.result);
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
   const openFileDialog = () => {
@@ -239,14 +212,39 @@ const ImageUploader = ({
   );
 };
 
-const UploadImageButton = ({ onClearImage }: { onClearImage: () => void }) => {
-  const { croppedImageDataURL, uploadFunction, onUploadResponse } =
-    useCroppedImage();
+const UploadButton = ({
+  croppedImageDataURL,
+  uploadFunction,
+  onUploadResponse,
+  onClearImage,
+}: {
+  croppedImageDataURL: string | null;
+  uploadFunction?: (file: File) => Promise<unknown>;
+  onUploadResponse?: (response: unknown) => void;
+  onClearImage: () => void;
+}) => {
   const [error, setError] = useState(false);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [disabled, setDisabled] = useState(true);
   const [file, setFile] = useState<File | null>(null);
+
+  useEffect(() => {
+    if (croppedImageDataURL) {
+      const imageFile = dataUrlToImageFile(croppedImageDataURL);
+      setFile(imageFile);
+      setDisabled(!imageFile);
+    } else {
+      setFile(null);
+      setDisabled(true);
+    }
+  }, [croppedImageDataURL]);
+
+  useEffect(() => {
+    if (success) {
+      setTimeout(onClearImage, 2000);
+    }
+  }, [success, onClearImage]);
 
   const handleUpload = async () => {
     if (!file || !uploadFunction) return;
@@ -273,24 +271,7 @@ const UploadImageButton = ({ onClearImage }: { onClearImage: () => void }) => {
     }
   };
 
-  useEffect(() => {
-    if (croppedImageDataURL) {
-      const imageFile = dataUrlToImageFile(croppedImageDataURL, "Image");
-      setFile(imageFile);
-      setDisabled(!imageFile);
-    } else {
-      setFile(null);
-      setDisabled(true);
-    }
-  }, [croppedImageDataURL]);
-
-  useEffect(() => {
-    if (success) {
-      setTimeout(onClearImage, 2000);
-    }
-  }, [success, onClearImage]);
-
-  if (croppedImageDataURL === null) return null;
+  if (!croppedImageDataURL) return null;
 
   return (
     <button
@@ -309,7 +290,17 @@ const UploadImageButton = ({ onClearImage }: { onClearImage: () => void }) => {
   );
 };
 
-const ImageControls = ({ onClearImage }: { onClearImage: () => void }) => {
+const ImageControls = ({
+  onClearImage,
+  croppedImageDataURL,
+  uploadFunction,
+  onUploadResponse,
+}: {
+  onClearImage: () => void;
+  croppedImageDataURL: string | null;
+  uploadFunction?: (file: File) => Promise<unknown>;
+  onUploadResponse?: (response: unknown) => void;
+}) => {
   return (
     <div>
       <button
@@ -318,30 +309,36 @@ const ImageControls = ({ onClearImage }: { onClearImage: () => void }) => {
       >
         <X size={16} />
       </button>
-      <UploadImageButton onClearImage={onClearImage} />
+      <UploadButton
+        croppedImageDataURL={croppedImageDataURL}
+        uploadFunction={uploadFunction}
+        onUploadResponse={onUploadResponse}
+        onClearImage={onClearImage}
+      />
     </div>
   );
 };
 
 const ImageCropper = ({
   image,
+  aspect,
+  cropperWidth,
+  cropperHeight,
   onCropComplete,
 }: {
   image: string;
+  aspect: number;
+  cropperWidth: string;
+  cropperHeight: string;
   onCropComplete: (croppedArea: Area, croppedAreaPixels: Area) => void;
 }) => {
-  const {
-    aspect,
-    cropperWidth: width,
-    cropperHeight: height,
-  } = useCroppedImage();
   const [crop, setCrop] = useState<Point>({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
 
   return (
     <div
       className="relative rounded-xl overflow-hidden box-border"
-      style={{ height, width }}
+      style={{ height: cropperHeight, width: cropperWidth }}
     >
       <Cropper
         image={image}
@@ -377,44 +374,47 @@ const ImageCrop = ({
 
     try {
       const croppedImage = await cropImage(image, croppedAreaPixels);
-      if (croppedImage) {
-        setCroppedImageDataURL(croppedImage);
-      }
+      setCroppedImageDataURL(croppedImage);
     } catch (error) {
       console.error("Error cropping image:", error);
     }
   };
 
+  // Reset cropped image when source image is cleared
   useEffect(() => {
     if (image === null) setCroppedImageDataURL(null);
   }, [image]);
 
   return (
-    <CroppedImageContext.Provider
-      value={{
-        croppedImageDataURL,
-        aspect,
-        cropperWidth,
-        cropperHeight,
-        uploaderWidth,
-        uploaderHeight,
-        uploadLimit,
-        onUploadResponse,
-        uploadFunction,
-      }}
-    >
-      <div className="relative transition-all duration-1000">
-        {!image && <ImageUploader onImageSelected={setImage} />}
-        {image && (
-          <div>
-            <ImageControls onClearImage={() => setImage(null)} />
-            <ImageCropper image={image} onCropComplete={onCropComplete} />
-          </div>
-        )}
-      </div>
-    </CroppedImageContext.Provider>
+    <div className="relative transition-all duration-1000">
+      {!image && (
+        <ImageUploader
+          onImageSelected={setImage}
+          uploaderWidth={uploaderWidth}
+          uploaderHeight={uploaderHeight}
+          uploadLimit={uploadLimit}
+        />
+      )}
+      {image && (
+        <div>
+          <ImageControls
+            onClearImage={() => setImage(null)}
+            croppedImageDataURL={croppedImageDataURL}
+            uploadFunction={uploadFunction}
+            onUploadResponse={onUploadResponse}
+          />
+          <ImageCropper
+            image={image}
+            aspect={aspect}
+            cropperWidth={cropperWidth}
+            cropperHeight={cropperHeight}
+            onCropComplete={onCropComplete}
+          />
+        </div>
+      )}
+    </div>
   );
 };
 
+// Public API
 export default ImageCrop;
-export { useCroppedImage };
