@@ -1,20 +1,20 @@
+import ImageCrop from "./components/uploaders/ImageCrop";
 function App() {
   return (
     <>
       <h1>Uploaders</h1>
 
       <ImageCrop
-        url={`${BASE_URL}${endPoint.sendBannerImage}`}
+        url={``}
         cropperWidth="100%"
         uploaderWidth="100%"
         uploaderHeight="200px"
         cropperHeight="300px"
-        aspect={aspectRatio}
+        aspect={1 / 1}
         onUploadResponse={(response) => {
-          setBannerImages([response.data]);
+          console.log("response", response);
         }}
       />
-      <ImageList imageUrls={bannerImages} setImageUrls={setBannerImages} />
     </>
   );
 }

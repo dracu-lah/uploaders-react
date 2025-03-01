@@ -1,9 +1,8 @@
 import { Image } from "lucide-react";
 import { useCroppedImage } from "./useCroppedImage";
-import { toast } from "sonner";
 
 const DropZone = ({ onDrop }) => {
-  const { aspect, uploadLimit } = useCroppedImage(); // uploadLimit is in MB
+  const { uploadLimit } = useCroppedImage(); // uploadLimit is in MB
 
   const handleDragOver = (e) => {
     e.preventDefault();
@@ -15,7 +14,7 @@ const DropZone = ({ onDrop }) => {
     if (file) {
       const fileSizeInMB = file.size / (1024 * 1024); // Convert bytes to MB
       if (fileSizeInMB > uploadLimit) {
-        toast.error(`File exceeds the upload limit of ${uploadLimit}MB`);
+        console.error(`File exceeds the upload limit of ${uploadLimit}MB`);
         return;
       }
       if (file.type.startsWith("image/")) {
@@ -25,7 +24,7 @@ const DropZone = ({ onDrop }) => {
         };
         reader.readAsDataURL(file);
       } else {
-        toast.error("Please upload a valid image file.");
+        console.error("Please upload a valid image file.");
       }
     }
   };

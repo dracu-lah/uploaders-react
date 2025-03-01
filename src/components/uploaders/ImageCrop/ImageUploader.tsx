@@ -1,7 +1,6 @@
 import { useRef } from "react";
 import DropZone from "./DropZone";
 import { useCroppedImage } from "./useCroppedImage";
-import { toast } from "sonner"; // Import the toast function
 
 const ImageUploader = ({ onImageSelected }) => {
   const {
@@ -16,7 +15,7 @@ const ImageUploader = ({ onImageSelected }) => {
     if (file) {
       const fileSizeInMB = file.size / (1024 * 1024); // Convert bytes to MB
       if (fileSizeInMB > uploadLimit) {
-        toast.error(`File exceeds the upload limit of ${uploadLimit}MB`);
+        console.error(`File exceeds the upload limit of ${uploadLimit}MB`);
         return;
       }
       if (file.type.startsWith("image/")) {
@@ -26,7 +25,7 @@ const ImageUploader = ({ onImageSelected }) => {
         };
         reader.readAsDataURL(file);
       } else {
-        toast.error("Please upload a valid image file.");
+        console.error("Please upload a valid image file.");
       }
     }
   };
