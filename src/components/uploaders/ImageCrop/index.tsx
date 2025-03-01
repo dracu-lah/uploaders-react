@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useState, useRef } from "react";
 import Cropper from "react-easy-crop";
 import { Image, Upload, X, Check, AlertCircle, Loader } from "lucide-react";
 
@@ -15,18 +15,53 @@ type Area = {
   height: number;
 };
 
-type ImageCropProps = {
-  uploadFunction?: (file: File) => Promise<unknown>;
-  uploadLimit?: number;
-  aspect?: number;
-  cropperWidth?: string;
-  cropperHeight?: string;
-  uploaderWidth?: string;
-  uploaderHeight?: string;
-  onUploadResponse?: (response: unknown) => void;
+type ValidationOptions = {
+  /** Allowed mime types (e.g. ['image/jpeg', 'image/png']) */
+  allowedTypes?: string[];
+  /** Minimum width of the image in pixels */
+  minWidth?: number;
+  /** Minimum height of the image in pixels */
+  maxWidth?: number;
+  /** Maximum width of the image in pixels */
+  minHeight?: number;
+  /** Maximum height of the image in pixels */
+  maxHeight?: number;
 };
 
-// Utility functions
+type ImageCropProps = {
+  /** Function to handle the upload of the cropped image */
+  uploadFunction?: (file: File) => Promise<unknown>;
+  /** Maximum allowed file size in MB */
+  uploadLimit?: number;
+  /** Aspect ratio for cropping (width/height) */
+  aspect?: number;
+  /** Width of the cropper component */
+  cropperWidth?: string;
+  /** Height of the cropper component */
+  cropperHeight?: string;
+  /** Width of the uploader component */
+  uploaderWidth?: string;
+  /** Height of the uploader component */
+  uploaderHeight?: string;
+  /** Callback when upload completes, returns the response from uploadFunction */
+  onUploadResponse?: (response: unknown) => void;
+  /** Callback when the image is cropped, returns the cropped image data URL */
+  onCropComplete?: (croppedImageDataURL: string | null) => void;
+  /** Custom validation options for the uploaded image */
+  validationOptions?: ValidationOptions;
+  /** Custom error handler function */
+  onError?: (errorMessage: string) => void;
+  /** Option to disable cropping */
+  disableCrop?: boolean;
+};
+
+/**
+ * Crops an image based on specified area
+ *
+ * @param image - The source image as a data URL
+ * @param croppedAreaPixels - The area to crop
+ * @returns A Promise that resolves to the cropped image data URL or null
+ */
 const cropImage = async (
   image: string,
   croppedAreaPixels: Area,
@@ -68,6 +103,13 @@ const cropImage = async (
   });
 };
 
+/**
+ * Converts a data URL to a File object
+ *
+ * @param dataURL - The data URL to convert
+ * @param imageName - Name for the resulting file (default: "Image")
+ * @returns A File object or null if conversion fails
+ */
 const dataUrlToImageFile = (
   dataURL: string,
   imageName: string = "Image",
@@ -91,13 +133,108 @@ const dataUrlToImageFile = (
   return new File([blob], `${imageName}.${extension}`, { type: mimeType });
 };
 
+/**
+ * Validates an image file against provided validation options
+ *
+ * @param file - The file to validate
+ * @param options - Validation options
+ * @param onError - Error handler function
+ * @returns Boolean indicating if file passes validation
+ */
+const validateImage = (
+  file: File,
+  options?: ValidationOptions,
+  onError?: (message: string) => void,
+): Promise<boolean> => {
+  return new Promise((resolve) => {
+    if (!options) {
+      resolve(true);
+      return;
+    }
+
+    // Check file type
+    if (options.allowedTypes && options.allowedTypes.length > 0) {
+      if (!options.allowedTypes.includes(file.type)) {
+        const errorMsg = `File type not allowed. Allowed types: ${options.allowedTypes.join(", ")}`;
+        if (onError) onError(errorMsg);
+        else console.error(errorMsg);
+        resolve(false);
+        return;
+      }
+    }
+
+    // Check dimensions if any dimension constraints exist
+    if (
+      options.minWidth ||
+      options.maxWidth ||
+      options.minHeight ||
+      options.maxHeight
+    ) {
+      const img = new Image();
+      img.onload = () => {
+        const width = img.width;
+        const height = img.height;
+
+        if (options.minWidth && width < options.minWidth) {
+          const errorMsg = `Image width too small. Minimum: ${options.minWidth}px`;
+          if (onError) onError(errorMsg);
+          else console.error(errorMsg);
+          resolve(false);
+          return;
+        }
+
+        if (options.maxWidth && width > options.maxWidth) {
+          const errorMsg = `Image width too large. Maximum: ${options.maxWidth}px`;
+          if (onError) onError(errorMsg);
+          else console.error(errorMsg);
+          resolve(false);
+          return;
+        }
+
+        if (options.minHeight && height < options.minHeight) {
+          const errorMsg = `Image height too small. Minimum: ${options.minHeight}px`;
+          if (onError) onError(errorMsg);
+          else console.error(errorMsg);
+          resolve(false);
+          return;
+        }
+
+        if (options.maxHeight && height > options.maxHeight) {
+          const errorMsg = `Image height too large. Maximum: ${options.maxHeight}px`;
+          if (onError) onError(errorMsg);
+          else console.error(errorMsg);
+          resolve(false);
+          return;
+        }
+
+        resolve(true);
+      };
+
+      img.onerror = () => {
+        const errorMsg = "Failed to load image for validation";
+        if (onError) onError(errorMsg);
+        else console.error(errorMsg);
+        resolve(false);
+      };
+
+      img.src = URL.createObjectURL(file);
+    } else {
+      resolve(true);
+    }
+  });
+};
+
 // Component definitions
 const DropZone = ({
   onDrop,
   uploadLimit,
+  validationOptions,
+  onError,
 }: {
   onDrop: (dataUrl: string) => void;
   uploadLimit: number;
+  validationOptions?: ValidationOptions;
+  onError?: (message: string) => void;
 }) => {
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -109,18 +246,28 @@ const DropZone = ({
     processFile(file);
   };
 
-  const processFile = (file: File) => {
+  const processFile = async (file: File) => {
     if (!file) return;
 
     const fileSizeInMB = file.size / (1024 * 1024);
     if (fileSizeInMB > uploadLimit) {
-      console.error(`File exceeds the upload limit of ${uploadLimit}MB`);
+      const errorMsg = `File exceeds the upload limit of ${uploadLimit}MB`;
+      if (onError) onError(errorMsg);
+      else console.error(errorMsg);
       return;
     }
 
     if (!file.type.startsWith("image/")) {
-      console.error("Please upload a valid image file.");
+      const errorMsg = "Please upload a valid image file";
+      if (onError) onError(errorMsg);
+      else console.error(errorMsg);
       return;
+    }
+
+    // Validate image if validation options provided
+    if (validationOptions) {
+      const isValid = await validateImage(file, validationOptions, onError);
+      if (!isValid) return;
     }
 
     const reader = new FileReader();
@@ -128,6 +275,11 @@ const DropZone = ({
       if (reader.result && typeof reader.result === "string") {
         onDrop(reader.result);
       }
+    };
+    reader.onerror = () => {
+      const errorMsg = "Failed to read the image file";
+      if (onError) onError(errorMsg);
+      else console.error(errorMsg);
     };
     reader.readAsDataURL(file);
   };
@@ -156,27 +308,41 @@ const ImageUploader = ({
   uploaderWidth,
   uploaderHeight,
   uploadLimit,
+  validationOptions,
+  onError,
 }: {
   onImageSelected: (dataUrl: string) => void;
   uploaderWidth: string;
   uploaderHeight: string;
   uploadLimit: number;
+  validationOptions?: ValidationOptions;
+  onError?: (message: string) => void;
 }) => {
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     const fileSizeInMB = file.size / (1024 * 1024);
     if (fileSizeInMB > uploadLimit) {
-      console.error(`File exceeds the upload limit of ${uploadLimit}MB`);
+      const errorMsg = `File exceeds the upload limit of ${uploadLimit}MB`;
+      if (onError) onError(errorMsg);
+      else console.error(errorMsg);
       return;
     }
 
     if (!file.type.startsWith("image/")) {
-      console.error("Please upload a valid image file.");
+      const errorMsg = "Please upload a valid image file";
+      if (onError) onError(errorMsg);
+      else console.error(errorMsg);
       return;
+    }
+
+    // Validate image if validation options provided
+    if (validationOptions) {
+      const isValid = await validateImage(file, validationOptions, onError);
+      if (!isValid) return;
     }
 
     const reader = new FileReader();
@@ -184,6 +350,11 @@ const ImageUploader = ({
       if (reader.result && typeof reader.result === "string") {
         onImageSelected(reader.result);
       }
+    };
+    reader.onerror = () => {
+      const errorMsg = "Failed to read the image file";
+      if (onError) onError(errorMsg);
+      else console.error(errorMsg);
     };
     reader.readAsDataURL(file);
   };
@@ -207,47 +378,43 @@ const ImageUploader = ({
         className="hidden"
         onChange={handleFileChange}
       />
-      <DropZone onDrop={onImageSelected} uploadLimit={uploadLimit} />
+      <DropZone
+        onDrop={onImageSelected}
+        uploadLimit={uploadLimit}
+        validationOptions={validationOptions}
+        onError={onError}
+      />
     </div>
   );
 };
 
 const UploadButton = ({
-  croppedImageDataURL,
+  imageDataURL,
   uploadFunction,
   onUploadResponse,
   onClearImage,
+  onError,
 }: {
-  croppedImageDataURL: string | null;
+  imageDataURL: string | null;
   uploadFunction?: (file: File) => Promise<unknown>;
   onUploadResponse?: (response: unknown) => void;
   onClearImage: () => void;
+  onError?: (message: string) => void;
 }) => {
   const [error, setError] = useState(false);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [disabled, setDisabled] = useState(true);
-  const [file, setFile] = useState<File | null>(null);
-
-  useEffect(() => {
-    if (croppedImageDataURL) {
-      const imageFile = dataUrlToImageFile(croppedImageDataURL);
-      setFile(imageFile);
-      setDisabled(!imageFile);
-    } else {
-      setFile(null);
-      setDisabled(true);
-    }
-  }, [croppedImageDataURL]);
-
-  useEffect(() => {
-    if (success) {
-      setTimeout(onClearImage, 2000);
-    }
-  }, [success, onClearImage]);
 
   const handleUpload = async () => {
-    if (!file || !uploadFunction) return;
+    if (!imageDataURL || !uploadFunction) return;
+
+    const file = dataUrlToImageFile(imageDataURL);
+    if (!file) {
+      const errorMsg = "Failed to prepare image for upload";
+      if (onError) onError(errorMsg);
+      else console.error(errorMsg);
+      return;
+    }
 
     try {
       setLoading(true);
@@ -260,25 +427,31 @@ const UploadButton = ({
       if (onUploadResponse) {
         onUploadResponse(response);
       }
+
+      // Auto-clear after success
+      setTimeout(onClearImage, 2000);
     } catch (error) {
-      console.error(
-        "Upload failed:",
-        error instanceof Error ? error.message : "Unknown error",
-      );
+      const errorMsg = error instanceof Error ? error.message : "Unknown error";
       setError(true);
+
+      if (onError) {
+        onError(`Upload failed: ${errorMsg}`);
+      } else {
+        console.error("Upload failed:", errorMsg);
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  if (!croppedImageDataURL) return null;
+  if (!imageDataURL) return null;
 
   return (
     <button
       className={`absolute z-20 flex justify-center items-center right-3 bottom-3 border-none w-12 h-12 text-white rounded-xl ${
-        disabled ? "cursor-not-allowed" : "cursor-pointer"
-      } ${error ? "bg-red-600" : success ? "bg-green-600" : "bg-gray-800"}`}
-      disabled={disabled || loading}
+        error ? "bg-red-600" : success ? "bg-green-600" : "bg-gray-800"
+      }`}
+      disabled={loading}
       onClick={handleUpload}
       title="Upload Image"
     >
@@ -292,14 +465,16 @@ const UploadButton = ({
 
 const ImageControls = ({
   onClearImage,
-  croppedImageDataURL,
+  imageDataURL,
   uploadFunction,
   onUploadResponse,
+  onError,
 }: {
   onClearImage: () => void;
-  croppedImageDataURL: string | null;
+  imageDataURL: string | null;
   uploadFunction?: (file: File) => Promise<unknown>;
   onUploadResponse?: (response: unknown) => void;
+  onError?: (message: string) => void;
 }) => {
   return (
     <div>
@@ -310,10 +485,11 @@ const ImageControls = ({
         <X size={16} />
       </button>
       <UploadButton
-        croppedImageDataURL={croppedImageDataURL}
+        imageDataURL={imageDataURL}
         uploadFunction={uploadFunction}
         onUploadResponse={onUploadResponse}
         onClearImage={onClearImage}
+        onError={onError}
       />
     </div>
   );
@@ -353,7 +529,11 @@ const ImageCropper = ({
   );
 };
 
-// Main component
+/**
+ * ImageCrop - A React component for uploading, cropping, and submitting images
+ *
+ * @component
+ */
 const ImageCrop = ({
   uploadFunction,
   uploadLimit = 4,
@@ -363,53 +543,137 @@ const ImageCrop = ({
   uploaderWidth = "50vw",
   uploaderHeight = "50vw",
   onUploadResponse,
+  onCropComplete,
+  validationOptions,
+  onError,
+  disableCrop = false,
 }: ImageCropProps) => {
   const [image, setImage] = useState<string | null>(null);
   const [croppedImageDataURL, setCroppedImageDataURL] = useState<string | null>(
     null,
   );
+  const [currentCroppedArea, setCurrentCroppedArea] = useState<Area | null>(
+    null,
+  );
+  const [currentCroppedAreaPixels, setCurrentCroppedAreaPixels] =
+    useState<Area | null>(null);
 
-  const onCropComplete = async (_: Area, croppedAreaPixels: Area) => {
-    if (!image) return;
+  // Handle image selection with direct upload option if crop is disabled
+  const handleImageSelected = (dataUrl: string) => {
+    setImage(dataUrl);
 
-    try {
-      const croppedImage = await cropImage(image, croppedAreaPixels);
-      setCroppedImageDataURL(croppedImage);
-    } catch (error) {
-      console.error("Error cropping image:", error);
+    // If crop is disabled, use the original image directly
+    if (disableCrop) {
+      setCroppedImageDataURL(dataUrl);
+      if (onCropComplete) {
+        onCropComplete(dataUrl);
+      }
     }
   };
 
-  // Reset cropped image when source image is cleared
-  useEffect(() => {
-    if (image === null) setCroppedImageDataURL(null);
-  }, [image]);
+  // Handle crop complete
+  const handleCropComplete = (croppedArea: Area, croppedAreaPixels: Area) => {
+    // Store current crop data
+    setCurrentCroppedArea(croppedArea);
+    setCurrentCroppedAreaPixels(croppedAreaPixels);
+  };
+
+  // Handle crop button click - direct approach instead of useEffect
+  const handleApplyCrop = async () => {
+    if (!image || !currentCroppedAreaPixels) return;
+
+    try {
+      const croppedImage = await cropImage(image, currentCroppedAreaPixels);
+      setCroppedImageDataURL(croppedImage);
+
+      // Notify parent component about the cropped image
+      if (onCropComplete && croppedImage) {
+        onCropComplete(croppedImage);
+      }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : "Unknown error";
+      if (onError) {
+        onError(`Error cropping image: ${errorMsg}`);
+      } else {
+        console.error("Error cropping image:", errorMsg);
+      }
+    }
+  };
+
+  // Reset all state when image is cleared
+  const handleClearImage = () => {
+    setImage(null);
+    setCroppedImageDataURL(null);
+    setCurrentCroppedArea(null);
+    setCurrentCroppedAreaPixels(null);
+
+    if (onCropComplete) {
+      onCropComplete(null);
+    }
+  };
 
   return (
     <div className="relative transition-all duration-1000">
       {!image && (
         <ImageUploader
-          onImageSelected={setImage}
+          onImageSelected={handleImageSelected}
           uploaderWidth={uploaderWidth}
           uploaderHeight={uploaderHeight}
           uploadLimit={uploadLimit}
+          validationOptions={validationOptions}
+          onError={onError}
         />
       )}
       {image && (
         <div>
           <ImageControls
-            onClearImage={() => setImage(null)}
-            croppedImageDataURL={croppedImageDataURL}
+            onClearImage={handleClearImage}
+            imageDataURL={disableCrop ? image : croppedImageDataURL}
             uploadFunction={uploadFunction}
             onUploadResponse={onUploadResponse}
+            onError={onError}
           />
-          <ImageCropper
-            image={image}
-            aspect={aspect}
-            cropperWidth={cropperWidth}
-            cropperHeight={cropperHeight}
-            onCropComplete={onCropComplete}
-          />
+
+          {!disableCrop && (
+            <>
+              <ImageCropper
+                image={image}
+                aspect={aspect}
+                cropperWidth={cropperWidth}
+                cropperHeight={cropperHeight}
+                onCropComplete={handleCropComplete}
+              />
+
+              {/* Apply crop button */}
+              {!croppedImageDataURL && (
+                <button
+                  onClick={handleApplyCrop}
+                  disabled={!currentCroppedAreaPixels}
+                  className="absolute z-20 bottom-3 left-3 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400"
+                >
+                  Apply Crop
+                </button>
+              )}
+
+              {/* Preview of cropped image */}
+              {croppedImageDataURL && (
+                <div
+                  className="absolute inset-0 z-10 flex items-center justify-center bg-black bg-opacity-50"
+                  style={{ width: cropperWidth, height: cropperHeight }}
+                >
+                  <img
+                    src={croppedImageDataURL}
+                    alt="Cropped preview"
+                    className="max-w-full max-h-full object-contain"
+                  />
+                  <button
+                    onClick={() => setCroppedImageDataURL(null)}
+                    className="absolute top-3 right-3 px-2 py-1 bg-yellow-600 text-white rounded-lg"
+                  ></button>
+                </div>
+              )}
+            </>
+          )}
         </div>
       )}
     </div>
@@ -418,3 +682,7 @@ const ImageCrop = ({
 
 // Public API
 export default ImageCrop;
+
+// Export utility functions
+export { dataUrlToImageFile, cropImage, validateImage };
+export type { Area, Point, ValidationOptions };
