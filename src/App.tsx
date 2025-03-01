@@ -1,8 +1,8 @@
 import ImageCrop from "./components/uploaders/ImageCrop";
 function App() {
   return (
-    <>
-      <h1>Uploaders</h1>
+    <div className="p-12">
+      <h1 className="text-2xl mb-8 underline">Uploaders</h1>
 
       <ImageCrop
         url={``}
@@ -15,7 +15,7 @@ function App() {
           console.log("response", response);
         }}
       />
-    </>
+    </div>
   );
 }
 
