@@ -2,7 +2,7 @@ import { useState, useRef } from "react";
 import Cropper from "react-easy-crop";
 import { Image, Upload, X, Check, AlertCircle, Loader } from "lucide-react";
 import { Area, ImageCropProps, ValidationOptions } from "./types";
-import { cropImage, dataUrlToImageFile, validateImage } from "./utls";
+import { cropImage, dataUrlToImageFile, validateImage } from "./utils";
 
 // Component definitions
 const DropZone = ({
