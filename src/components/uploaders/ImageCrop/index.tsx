@@ -1,6 +1,15 @@
 import { useState, useRef } from "react";
 import Cropper from "react-easy-crop";
-import { Image, Upload, X, Check, AlertCircle, Loader } from "lucide-react";
+import {
+  Image,
+  Upload,
+  X,
+  Check,
+  EditIcon,
+  AlertCircle,
+  Loader,
+  CheckIcon,
+} from "lucide-react";
 import { Area, ImageCropProps, Point, ValidationOptions } from "./types";
 import { cropImage, dataUrlToImageFile, validateImage } from "./utils";
 
@@ -429,9 +438,9 @@ const ImageCrop = ({
                 <button
                   onClick={handleApplyCrop}
                   disabled={!currentCroppedAreaPixels}
-                  className="absolute z-20 bottom-3 left-3 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400"
+                  className="absolute z-20 bottom-3 right-3 px-4 py-2 bg-green-700 text-white rounded-lg cursor-pointer disabled:bg-gray-400"
                 >
-                  Apply Crop
+                  <CheckIcon />
                 </button>
               )}
 
@@ -449,7 +458,9 @@ const ImageCrop = ({
                   <button
                     onClick={() => setCroppedImageDataURL(null)}
                     className="absolute top-3 right-3 px-2 py-1 bg-yellow-600 text-white rounded-lg"
-                  ></button>
+                  >
+                    <EditIcon />
+                  </button>
                 </div>
               )}
             </>
