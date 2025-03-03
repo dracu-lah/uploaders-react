@@ -1,7 +1,14 @@
 import { useState, useRef } from "react";
 import Cropper from "react-easy-crop";
 import { Image, Upload, X, Check, AlertCircle, Loader } from "lucide-react";
-import { Area, ImageCropProps, ValidationOptions } from "./types";
+import {
+  Area,
+  ImageCropProps,
+  Point,
+  Point,
+  Point,
+  ValidationOptions,
+} from "./types";
 import { cropImage, dataUrlToImageFile, validateImage } from "./utils";
 
 // Component definitions
